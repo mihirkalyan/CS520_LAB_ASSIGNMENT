@@ -1,0 +1,133 @@
+/* =======================================================
+   Anthem AI - JavaFX Dark Theme 
+   ======================================================= */
+
+/* --- 1. GLOBAL DASHBOARD STYLE --- */
+.root {
+    -fx-background-color: #0f172a; /* Main Dark Slate Background */
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* --- 2. TYPOGRAPHY & LABELS --- */
+.label {
+    -fx-text-fill: #f8fafc; /* Default bright white text */
+}
+
+/* --- 3. PANELS & CARDS (The rounded dark boxes) --- */
+.vbox, .hbox {
+    /* Only apply this to boxes that are specifically acting as cards */
+}
+.dashboard-card {
+    -fx-background-color: #1e293b; /* Slightly lighter slate for cards */
+    -fx-background-radius: 12px;
+    -fx-border-color: #334155;
+    -fx-border-radius: 12px;
+    -fx-border-width: 1px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 5);
+}
+
+/* --- 4. BUTTONS (Modern flat design with hover states) --- */
+.button {
+    -fx-background-radius: 8px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-border-width: 0;
+    -fx-font-size: 13px;
+    -fx-padding: 10px 15px;
+}
+
+/* Start Stream Button (Green) */
+.btn-start {
+    -fx-background-color: #10b981;
+    -fx-text-fill: white;
+}
+.btn-start:hover { -fx-background-color: #34d399; }
+.btn-start:disabled { -fx-background-color: #064e3b; -fx-text-fill: #9ca3af; }
+
+/* Stop Stream Button (Red) */
+.btn-stop {
+    -fx-background-color: #ef4444;
+    -fx-text-fill: white;
+}
+.btn-stop:hover { -fx-background-color: #f87171; }
+.btn-stop:disabled { -fx-background-color: #7f1d1d; -fx-text-fill: #9ca3af; }
+
+/* Fetch Data Button (Blue) */
+.btn-fetch {
+    -fx-background-color: #3b82f6;
+    -fx-text-fill: white;
+}
+.btn-fetch:hover { -fx-background-color: #60a5fa; }
+
+/* Generate Report Button (Purple) */
+.btn-report {
+    -fx-background-color: #8b5cf6;
+    -fx-text-fill: white;
+}
+.btn-report:hover { -fx-background-color: #a78bfa; }
+
+
+/* --- 5. LINE CHART STYLING (Removing the ugly white box!) --- */
+.chart {
+    -fx-padding: 5px;
+}
+.chart-plot-background {
+    -fx-background-color: transparent; /* Kills the default white background */
+}
+.chart-vertical-grid-lines, .chart-horizontal-grid-lines {
+    -fx-stroke: #334155; /* Subtle dark grid lines */
+    -fx-stroke-dash-array: 5, 5;
+}
+.chart-alternative-row-fill {
+    -fx-fill: transparent;
+}
+.axis {
+    -fx-tick-label-fill: #94a3b8; /* Light gray axis text */
+}
+.axis:bottom, .axis:left {
+    -fx-border-color: transparent;
+}
+.axis-tick-mark, .axis-minor-tick-mark {
+    -fx-stroke: transparent;
+}
+
+/* Custom Chart Line Colors (Matching the React UI) */
+.default-color0.chart-series-line { -fx-stroke: #10b981; -fx-stroke-width: 2.5px; } /* Cars - Green */
+.default-color1.chart-series-line { -fx-stroke: #3b82f6; -fx-stroke-width: 2.5px; } /* Trucks - Blue */
+.default-color2.chart-series-line { -fx-stroke: #f59e0b; -fx-stroke-width: 2.5px; } /* Bikes - Orange */
+
+/* Dots on the line chart */
+.default-color0.chart-line-symbol { -fx-background-color: #10b981, #0f172a; }
+.default-color1.chart-line-symbol { -fx-background-color: #3b82f6, #0f172a; }
+.default-color2.chart-line-symbol { -fx-background-color: #f59e0b, #0f172a; }
+
+/* Legend Text */
+.chart-legend {
+    -fx-background-color: transparent;
+}
+.chart-legend-item {
+    -fx-text-fill: #cbd5e1;
+}
+
+/* --- 6. PIE CHART STYLING --- */
+.default-color0.chart-pie { -fx-pie-color: #10b981; -fx-border-color: #1e293b; -fx-border-width: 2px;}
+.default-color1.chart-pie { -fx-pie-color: #3b82f6; -fx-border-color: #1e293b; -fx-border-width: 2px;}
+.default-color2.chart-pie { -fx-pie-color: #f59e0b; -fx-border-color: #1e293b; -fx-border-width: 2px;}
+
+/* --- 7. EVENT LOG TERMINAL --- */
+.event-log {
+    -fx-background-color: #0f172a;
+    -fx-border-color: #334155;
+    -fx-border-radius: 10px;
+    -fx-control-inner-background: #0f172a;
+}
+.event-log .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #10b981; /* Hacker green text */
+    -fx-font-family: monospace;
+    -fx-font-size: 11px;
+    -fx-padding: 2px 5px;
+}
+.event-log .list-cell:empty {
+    -fx-background-color: transparent;
+}
