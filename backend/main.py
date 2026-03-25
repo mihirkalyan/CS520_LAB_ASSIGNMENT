@@ -30,7 +30,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_tables()
-    print("✓ Database tables verified / created.")
+    print("[OK] Database tables verified / created.")
 
 
 # ---------------------------------------------------------------------------

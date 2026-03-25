@@ -263,10 +263,51 @@ public class TrafficDashboardController implements ITrafficDashboardView {
             carsSeries.getData().clear();
             trucksSeries.getData().clear();
             motorcyclesSeries.getData().clear();
-            
-            // TODO: Parse historicalData and populate charts
-            // This depends on your data structure from backend
+
+            // Parse and populate charts with historical data
+            for (Object dataItem : historicalData) {
+                if (dataItem instanceof com.anthem_traffic.model.HistoricalDataPoint) {
+                    com.anthem_traffic.model.HistoricalDataPoint point =
+                            (com.anthem_traffic.model.HistoricalDataPoint) dataItem;
+
+                    // Extract time from timestamp for display (e.g., "14:30")
+                    String timeLabel = extractTimeLabel(point.timestamp);
+
+                    // Add data to each series
+                    carsSeries.getData().add(new XYChart.Data<>(timeLabel, point.cars));
+                    trucksSeries.getData().add(new XYChart.Data<>(timeLabel, point.trucks));
+                    motorcyclesSeries.getData().add(new XYChart.Data<>(timeLabel, point.motorcycles));
+                }
+            }
         });
+    }
+
+    /**
+     * Extract time label from timestamp string
+     * Handles both "YYYY-MM-DD HH:MM:SS" and "HH:MM:SS" formats
+     */
+    private String extractTimeLabel(String timestamp) {
+        if (timestamp == null || timestamp.isEmpty()) {
+            return "00:00";
+        }
+
+        if (timestamp.contains(" ")) {
+            // "YYYY-MM-DD HH:MM:SS" format
+            try {
+                return timestamp.substring(11, 16); // Get "HH:MM"
+            } catch (StringIndexOutOfBoundsException e) {
+                return "00:00";
+            }
+        } else if (timestamp.contains(":")) {
+            // "HH:MM:SS" format
+            try {
+                return timestamp.substring(0, 5); // Get "HH:MM"
+            } catch (StringIndexOutOfBoundsException e) {
+                return "00:00";
+            }
+        }
+
+        return "00:00";
     }
     
     @Override
