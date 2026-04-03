@@ -1,0 +1,5 @@
+To run the file:
+	python vehicle_detection.py
+
+To exit the detection:
+	Press Q key
