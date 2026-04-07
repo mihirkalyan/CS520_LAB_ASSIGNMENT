@@ -1,3 +1,5 @@
+#traffic.py
+
 from database.db import Base
 from sqlalchemy import Column, Integer, Float, String, Boolean, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
