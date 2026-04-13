@@ -1,0 +1,17 @@
+Enter the following command into the terminal:
+    python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+
+Wait a few seconds and there should be a popup in the bottom right corner, click "Open in browser"
+
+
+Once you have opened the link, the it will take you to a page that says not found.
+
+Copy the URL of that page, then add /docs to it then press enter, and that will take you to the backend 
+
+For example:
+
+If the original link is https://reimagined-winner-4jp7v5wpgvgfq4p5-8000.app.github.dev/
+
+Then the link to the backend will be https://reimagined-winner-4jp7v5wpgvgfq4p5-8000.app.github.dev/docs
+
