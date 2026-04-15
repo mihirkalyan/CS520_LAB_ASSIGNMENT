@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from database.db import get_db
-from models.traffic import Report, TrafficRecord
+from models.traffic import Report, TrafficSnapshot as TrafficRecord
 from schemas.traffic import ReportResponse
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])

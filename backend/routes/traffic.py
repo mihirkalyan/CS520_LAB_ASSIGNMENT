@@ -1,12 +1,12 @@
 #traffic.py
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from datetime import datetime, timezone
 from typing import Optional
 
 from database.db import get_db
-from models.traffic import TrafficRecord, SystemStatus
+from models.traffic import TrafficSnapshot, SystemStatus
 from schemas.traffic import (
     TrafficRecordCreate,
     LiveStreamResponse,
@@ -23,7 +23,6 @@ router = APIRouter(prefix="/api/traffic", tags=["traffic"])
 
 
 def _derive_congestion(total: int) -> str:
-    """Mirror the threshold logic in Main.java."""
     if total > CONGESTION_HEAVY_THRESHOLD:
         return "heavy"
     elif total > CONGESTION_MODERATE_THRESHOLD:
@@ -43,18 +42,16 @@ def _calc_pcts(cars: int, trucks: int, motorcycles: int, total: int):
 
 # ---------------------------------------------------------------------------
 # POST /api/traffic/record
-# JavaFX frontend → backend → Supabase
+# Accepts snapshots from the JavaFX frontend (mock/frontend data path).
+# The AI pipeline writes directly via video_service — this endpoint stays
+# for backward compatibility and manual testing.
 # ---------------------------------------------------------------------------
 @router.post("/record", status_code=201)
 def record_traffic(payload: TrafficRecordCreate, db: Session = Depends(get_db)):
-    """
-    Receives a detection snapshot from the JavaFX frontend every ~2 seconds
-    while the stream is active. Persists to traffic_records table.
-    """
     cars_pct, trucks_pct, moto_pct = _calc_pcts(
         payload.cars, payload.trucks, payload.motorcycles, payload.total
     )
-    record = TrafficRecord(
+    record = TrafficSnapshot(
         cars=payload.cars,
         trucks=payload.trucks,
         motorcycles=payload.motorcycles,
@@ -73,23 +70,18 @@ def record_traffic(payload: TrafficRecordCreate, db: Session = Depends(get_db)):
 
 # ---------------------------------------------------------------------------
 # GET /api/traffic/live
-# Frontend polls this every 2 seconds when stream is active
+# Frontend polls this every 2 seconds when stream is active.
 # ---------------------------------------------------------------------------
 @router.get("/live", response_model=LiveStreamResponse)
 def get_live(db: Session = Depends(get_db)):
-    """
-    Returns the most recent traffic snapshot plus system status.
-    Maps 1-to-1 with every ITrafficDashboardView update method.
-    """
-    latest: Optional[TrafficRecord] = (
-        db.query(TrafficRecord)
-        .order_by(desc(TrafficRecord.timestamp))
+    latest: Optional[TrafficSnapshot] = (
+        db.query(TrafficSnapshot)
+        .order_by(desc(TrafficSnapshot.timestamp))
         .first()
     )
     status: Optional[SystemStatus] = db.query(SystemStatus).filter_by(id=1).first()
 
     if not latest:
-        # Return zeroed-out payload before any data arrives
         return LiveStreamResponse(
             vehicle_counts=VehicleCountResponse(cars=0, trucks=0, motorcycles=0, total=0),
             category_distribution=CategoryDistributionResponse(cars_pct=0, trucks_pct=0, motorcycles_pct=0),
@@ -98,7 +90,7 @@ def get_live(db: Session = Depends(get_db)):
             system_status=SystemStatusResponse(
                 backend_connected=True,
                 database_connected=status is not None,
-                ai_model_loaded=False,
+                ai_model_loaded=status.ai_model_loaded if status else False,
                 stream_active=status.stream_active if status else False,
             ),
         )
@@ -131,23 +123,18 @@ def get_live(db: Session = Depends(get_db)):
 
 # ---------------------------------------------------------------------------
 # GET /api/traffic/historical
-# ITrafficDashboardPresenter.onFetchHistoricalDataClicked
 # ---------------------------------------------------------------------------
 @router.get("/historical", response_model=list[HistoricalDataPoint])
 def get_historical(
-    from_ts: datetime = Query(..., alias="from", description="ISO datetime start"),
-    to_ts:   datetime = Query(..., alias="to",   description="ISO datetime end"),
+    from_ts: datetime = Query(..., alias="from"),
+    to_ts:   datetime = Query(..., alias="to"),
     limit:   int      = Query(500, le=2000),
     db: Session = Depends(get_db),
 ):
-    """
-    Returns historical traffic records within a time window.
-    Accepts ?from=2026-03-01T00:00:00&to=2026-03-07T23:59:59
-    """
     records = (
-        db.query(TrafficRecord)
-        .filter(TrafficRecord.timestamp >= from_ts, TrafficRecord.timestamp <= to_ts)
-        .order_by(TrafficRecord.timestamp)
+        db.query(TrafficSnapshot)
+        .filter(TrafficSnapshot.timestamp >= from_ts, TrafficSnapshot.timestamp <= to_ts)
+        .order_by(TrafficSnapshot.timestamp)
         .limit(limit)
         .all()
     )
@@ -165,7 +152,7 @@ def get_historical(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/system/status
+# GET /api/traffic/system/status
 # ---------------------------------------------------------------------------
 @router.get("/system/status", response_model=SystemStatusResponse)
 def get_system_status(db: Session = Depends(get_db)):

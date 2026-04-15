@@ -22,3 +22,9 @@ CONGESTION_MODERATE_THRESHOLD: int = 50
 ALLOWED_ORIGINS: list[str] = os.getenv(
     "ALLOWED_ORIGINS", "http://localhost,http://localhost:8000"
 ).split(",")
+
+# ML / Video pipeline
+# STREAM_URL: "0" = local webcam; set to rtsp://... for drone feed
+STREAM_URL: str = os.getenv("STREAM_URL", "0").strip() or "0"
+MODEL_PATH: str = os.getenv("MODEL_PATH", "models_weights/yolov8n.pt")
+SAMPLE_EVERY_N_FRAMES: int = int(os.getenv("SAMPLE_EVERY_N_FRAMES", "10"))

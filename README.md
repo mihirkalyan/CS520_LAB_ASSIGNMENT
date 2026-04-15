@@ -11,3 +11,10 @@ This project was developed by a collaborative team. Each member's contribution w
 | **Trenton Barnes** | TB |
 
 ---
+pycache/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/

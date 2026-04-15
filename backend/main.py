@@ -1,10 +1,65 @@
 #main.py
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import DEBUG, ALLOWED_ORIGINS
-from database.db import create_tables
+from database.db import create_tables, SessionLocal
+from models.traffic import SystemStatus
 from routes import traffic, stream, reports
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ------------------------------------------------------------------
+    # STARTUP
+    # ------------------------------------------------------------------
+    create_tables()
+    print("[OK] Database tables verified / created.")
+
+    # Load YOLO model (import triggers singleton instantiation)
+    try:
+        from services.yolo_service import yolo_service  # noqa: F401
+        model_loaded = True
+    except Exception as e:
+        print(f"[WARN] YOLO model failed to load: {e}")
+        model_loaded = False
+
+    # Mark ai_model_loaded in system_status
+    db = SessionLocal()
+    try:
+        status = db.query(SystemStatus).filter_by(id=1).first()
+        if not status:
+            status = SystemStatus(id=1, backend_connected=True, database_connected=True)
+            db.add(status)
+        status.ai_model_loaded    = model_loaded
+        status.backend_connected  = True
+        status.database_connected = True
+        db.commit()
+    finally:
+        db.close()
+
+    # Start background video processor
+    if model_loaded:
+        try:
+            from services.video_service import video_processor
+            video_processor.start()
+            print("[OK] Video processor started in background.")
+        except Exception as e:
+            print(f"[WARN] Video processor failed to start: {e}")
+
+    yield
+
+    # ------------------------------------------------------------------
+    # SHUTDOWN
+    # ------------------------------------------------------------------
+    try:
+        from services.video_service import video_processor
+        video_processor.stop()
+        print("[OK] Video processor stopped.")
+    except Exception:
+        pass
+
 
 app = FastAPI(
     title="Anthem AI Traffic Backend",
@@ -12,6 +67,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
@@ -24,15 +80,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ---------------------------------------------------------------------------
-# Startup: ensure tables exist (safe no-op if already created via SQL seed)
-# ---------------------------------------------------------------------------
-@app.on_event("startup")
-def on_startup():
-    create_tables()
-    print("[OK] Database tables verified / created.")
-
 
 # ---------------------------------------------------------------------------
 # Routers
