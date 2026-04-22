@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import DEBUG, ALLOWED_ORIGINS
 from database.db import create_tables, SessionLocal
 from models.traffic import SystemStatus
-from routes import traffic, stream, reports
+from routes import traffic, stream, reports, video
 
 
 @asynccontextmanager
@@ -86,6 +86,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 app.include_router(stream.router)    # /api/stream/start  /api/stream/stop
 app.include_router(traffic.router)   # /api/traffic/live  /api/traffic/historical  /api/traffic/record
+app.include_router(video.router)     # /api/video/frame
 app.include_router(reports.router)   # /api/reports
 
 

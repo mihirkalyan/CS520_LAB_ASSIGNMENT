@@ -40,6 +40,7 @@ class VideoProcessor:
             "count":        0,
             "detections":   [],
         }
+        self.latest_frame_bytes = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -161,6 +162,9 @@ class VideoProcessor:
                     "count":        counts["total"],
                     "detections":   detections,
                 }
+
+                _, jpeg = cv2.imencode('.jpg', frame)
+                self.latest_frame_bytes = jpeg.tobytes()
 
         except Exception as e:
             print(f"[ERROR] Video processor exception: {e}")

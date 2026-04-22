@@ -304,7 +304,7 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
 
                     if (reportResponse == null || reportResponse.report_id == null) {
                         Platform.runLater(() -> view.showNotification("Failed to generate report", "error"));
-                        return;
+                        return null;
                     }
 
                     System.out.println("Report generated: " + reportResponse.report_id);
