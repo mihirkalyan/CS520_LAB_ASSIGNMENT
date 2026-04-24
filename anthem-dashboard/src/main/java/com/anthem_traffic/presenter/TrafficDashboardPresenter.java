@@ -13,11 +13,8 @@ import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.util.Duration;
 
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -26,30 +23,31 @@ import java.util.List;
 /**
  * TrafficDashboardPresenter - Implements MVP Presenter pattern
  *
- * Handles all interaction between the View and the Backend API.
- * Fetches seed data from the database and replays it at 2-second intervals.
- * Later, this will be replaced with live AI detection data via POST /api/traffic/record.
+ * Replaced historical-data replay with real-time polling of
+ *         GET /api/traffic/live every 2 seconds.
+ * view.updateVideoFrame() hook retained — ready to be called
+ *         if a /api/video/frame endpoint is added later.
+ * onStopStreamClicked() now resets isStreamActive and the UI
+ *         unconditionally, regardless of whether the backend responds.
  */
 public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
 
     private ITrafficDashboardView view;
-    private Timeline dataReplayTimer;
+
+    // renamed from dataReplayTimer to liveDataTimer to reflect its real purpose
+    private Timeline liveDataTimer;
     private Timeline statusCheckTimer;
-    private List<HistoricalDataPoint> currentDataSet;
-    private int currentDataIndex = 0;
+
     private boolean isStreamActive = false;
 
     public TrafficDashboardPresenter(ITrafficDashboardView view) {
         this.view = view;
-        this.currentDataSet = new ArrayList<>();
         startStatusCheckTimer();
     }
 
-    /**
-     * Start periodic health check to update system status
-     */
+    // Status check timer — unchanged, runs every 5 s
     private void startStatusCheckTimer() {
-        statusCheckTimer = new Timeline(new KeyFrame(javafx.util.Duration.seconds(5), event -> {
+        statusCheckTimer = new Timeline(new KeyFrame(Duration.seconds(5), event -> {
             Task<Void> task = new Task<>() {
                 @Override
                 protected Void call() {
@@ -63,183 +61,159 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
         statusCheckTimer.play();
     }
 
-    /**
-     * Fetch system status from backend and update UI
-     */
     private void updateSystemStatus() {
         SystemStatusResponse status = ApiClient.get(ApiConfig.SYSTEM_STATUS, SystemStatusResponse.class);
         if (status != null) {
-            Platform.runLater(() -> {
-                view.updateSystemStatus(status.backend_connected, status.database_connected, status.ai_model_loaded);
-            });
+            Platform.runLater(() ->
+                view.updateSystemStatus(status.backend_connected, status.database_connected, status.ai_model_loaded)
+            );
         }
     }
 
-    /**
-     * Called when "Start Stream" button is clicked
-     * Fetches seed data from backend and starts replay timer
-     */
+    // Start stream: signal backend, then poll /api/traffic/live
     @Override
     public void onStartStreamClicked() {
         if (isStreamActive) {
-            System.out.println("Stream already active");
+            System.out.println("[PRESENTER] Stream already active");
             return;
         }
 
-        // Run fetch operation in background thread
-        Task<List<HistoricalDataPoint>> fetchTask = new Task<>() {
+        Task<Boolean> startTask = new Task<>() {
             @Override
-            protected List<HistoricalDataPoint> call() {
-                // Call backend API to start stream (marks stream_active=true in DB)
+            protected Boolean call() {
+                // Tell the backend the stream is starting
                 SimpleResponse startResponse = ApiClient.post(ApiConfig.STREAM_START, SimpleResponse.class);
                 if (startResponse == null) {
-                    Platform.runLater(() -> view.showNotification("Failed to connect to backend", "error"));
-                    return null;
+                    Platform.runLater(() ->
+                        view.showNotification("Failed to connect to backend — is FastAPI running?", "error")
+                    );
+                    return false;
                 }
-
-                // Fetch seed data from backend
-                // Query for last 30 days to capture all seed data (generated for last 7 days)
-                // Format: YYYY-MM-DDTHH:MM:SS
-                LocalDateTime now = LocalDateTime.now();
-                LocalDateTime thirtyDaysAgo = now.minusDays(30);
-                String fromDate = thirtyDaysAgo.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                String toDate = now.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                String queryParams = "from=" + fromDate + "&to=" + toDate + "&limit=2000";
-
-                HistoricalDataPoint[] dataArray = ApiClient.get(
-                        ApiConfig.TRAFFIC_HISTORICAL,
-                        queryParams,
-                        HistoricalDataPoint[].class
-                );
-
-                if (dataArray == null || dataArray.length == 0) {
-                    Platform.runLater(() -> view.showNotification("No historical data available", "warning"));
-                    return null;
-                }
-
-                List<HistoricalDataPoint> dataList = new ArrayList<>();
-                for (HistoricalDataPoint point : dataArray) {
-                    dataList.add(point);
-                }
-
-                System.out.println("Fetched " + dataList.size() + " data points from backend");
-                return dataList;
+                return true;
             }
         };
 
-        fetchTask.setOnSucceeded(event -> {
-            List<HistoricalDataPoint> data = fetchTask.getValue();
-            if (data != null && !data.isEmpty()) {
-                currentDataSet = data;
-                currentDataIndex = 0;
+        startTask.setOnSucceeded(event -> {
+            if (Boolean.TRUE.equals(startTask.getValue())) {
                 isStreamActive = true;
                 view.setStreamStatus(true);
-                view.showNotification("Stream started - replaying historical data", "success");
-                startDataReplayTimer();
+                view.showNotification("Stream started — live data polling active", "success");
+                //start the LIVE polling timer (not a historical replay)
+                startLiveDataTimer();
             }
         });
 
-        fetchTask.setOnFailed(event -> {
-            view.showNotification("Failed to fetch data from backend", "error");
-            System.err.println("Error fetching data: " + fetchTask.getException().getMessage());
+        startTask.setOnFailed(event -> {
+            view.showNotification("Unexpected error starting stream", "error");
+            System.err.println("[PRESENTER] startTask failed: " + startTask.getException().getMessage());
         });
 
-        new Thread(fetchTask).start();
+        new Thread(startTask).start();
     }
 
-    /**
-     * Start the replay timer to update UI with seed data at 2-second intervals
-     */
-    private void startDataReplayTimer() {
-        if (dataReplayTimer != null) {
-            dataReplayTimer.stop();
+    // Live data timer: polls GET /api/traffic/live every 2 seconds
+    private void startLiveDataTimer() {
+        if (liveDataTimer != null) {
+            liveDataTimer.stop();
         }
 
-        dataReplayTimer = new Timeline(new KeyFrame(Duration.seconds(2), event -> {
-            if (currentDataSet.isEmpty() || !isStreamActive) {
-                return;
-            }
+        liveDataTimer = new Timeline(new KeyFrame(Duration.seconds(2), event -> {
+            if (!isStreamActive) return;
 
-            // Get next data point from seed data
-            HistoricalDataPoint dataPoint = currentDataSet.get(currentDataIndex % currentDataSet.size());
-            currentDataIndex++;
+            // Run the network call off the FX thread
+            Task<HistoricalDataPoint> pollTask = new Task<>() {
+                @Override
+                protected HistoricalDataPoint call() {
+                    // Use HistoricalDataPoint class since it has all the exact fields we need
+                    return ApiClient.get(ApiConfig.TRAFFIC_LIVE, HistoricalDataPoint.class);
+                }
+            };
 
-            // Extract timestamp (format: "HH:MM:SS" for display)
-            String displayTime = extractTimeFromTimestamp(dataPoint.timestamp);
+            pollTask.setOnSucceeded(e -> {
+                HistoricalDataPoint live = pollTask.getValue();
+                if (live == null) {
+                    // Backend unreachable — show warning once, keep trying
+                    System.err.println("[PRESENTER] /api/traffic/live returned null — retrying next tick");
+                    return;
+                }
 
-            // Update all UI components
-            view.updateVehicleCounts(dataPoint.cars, dataPoint.trucks, dataPoint.motorcycles);
-            view.updateTotalVehicleCount(dataPoint.total);
-            view.updateTrafficTrend(displayTime, dataPoint.cars, dataPoint.trucks, dataPoint.motorcycles);
-            view.updateCategoryDistribution(dataPoint.cars_pct, dataPoint.trucks_pct, dataPoint.motorcycles_pct);
-            view.showCongestionAlert(dataPoint.congestion_level);
+                // Push every data field to the view
+                view.updateVehicleCounts(live.cars, live.trucks, live.motorcycles);
+                view.updateTotalVehicleCount(live.total);
+
+                String displayTime = extractTimeFromTimestamp(live.timestamp);
+                view.updateTrafficTrend(displayTime, live.cars, live.trucks, live.motorcycles);
+                view.updateCategoryDistribution(live.cars_pct, live.trucks_pct, live.motorcycles_pct);
+                view.showCongestionAlert(live.congestion_level);
+            });
+
+            pollTask.setOnFailed(e ->
+                System.err.println("[PRESENTER] Live poll failed: " + pollTask.getException().getMessage())
+            );
+
+            new Thread(pollTask).start();
         }));
 
-        dataReplayTimer.setCycleCount(Timeline.INDEFINITE);
-        dataReplayTimer.play();
+        liveDataTimer.setCycleCount(Timeline.INDEFINITE);
+        liveDataTimer.play();
     }
 
-    /**
-     * Extract time portion from timestamp (e.g., "10:45:30" from full datetime)
-     */
     private String extractTimeFromTimestamp(String timestamp) {
-        if (timestamp == null || timestamp.length() < 8) {
-            return "00:00";
-        }
-        // Handle both "YYYY-MM-DD HH:MM:SS" and "HH:MM:SS" formats
-        if (timestamp.contains(" ")) {
-            return timestamp.substring(11, 16); // Get "HH:MM"
+        if (timestamp == null || timestamp.length() < 5) return "00:00";
+        if (timestamp.contains(" ") && timestamp.length() >= 16) {
+            return timestamp.substring(11, 16); // "HH:MM" from "YYYY-MM-DD HH:MM:SS"
         } else if (timestamp.contains(":")) {
-            return timestamp.substring(0, 5); // Get "HH:MM"
+            return timestamp.substring(0, 5);   // "HH:MM" from "HH:MM:SS"
         }
         return "00:00";
     }
 
-    /**
-     * Called when "Stop Stream" button is clicked
-     */
+    // Stop stream: reset UI/state unconditionally, fire-and-forget
+    //           backend call so a dead backend cannot leave the UI stuck.
+
     @Override
     public void onStopStreamClicked() {
         if (!isStreamActive) {
-            System.out.println("Stream is not active");
+            System.out.println("[PRESENTER] Stream is not active");
             return;
         }
 
-        // Stop the replay timer
-        if (dataReplayTimer != null) {
-            dataReplayTimer.stop();
+        // Stop the timer and update UI state IMMEDIATELY — do not wait
+        //         for the backend to confirm. A dead/slow backend must not
+        //         leave isStreamActive=true and the Stop button frozen.
+        if (liveDataTimer != null) {
+            liveDataTimer.stop();
         }
+        isStreamActive = false;
+        view.setStreamStatus(false);
+        view.showNotification("Stream stopped", "info");
 
-        // Call backend API to stop stream
-        Task<Void> task = new Task<>() {
+        // Fire-and-forget: tell the backend to mark stream_active=false.
+        // If it fails, the UI is already correct — we just log it.
+        Task<Void> stopTask = new Task<>() {
             @Override
             protected Void call() {
                 SimpleResponse stopResponse = ApiClient.post(ApiConfig.STREAM_STOP, SimpleResponse.class);
-                if (stopResponse != null) {
-                    Platform.runLater(() -> {
-                        isStreamActive = false;
-                        view.setStreamStatus(false);
-                        view.showNotification("Stream stopped", "info");
-                    });
+                if (stopResponse == null) {
+                    System.err.println("[PRESENTER] Backend did not acknowledge stream stop — UI already updated.");
                 }
                 return null;
             }
         };
-
-        new Thread(task).start();
+        new Thread(stopTask).start();
     }
 
-    /**
-     * Called when "Fetch Historical Data" button is clicked
-     * Currently displays the current dataset or fetches with custom date range
-     */
+    // Fetch historical data — unchanged
     @Override
     public void onFetchHistoricalDataClicked() {
+        if (isStreamActive) {
+            onStopStreamClicked();
+            Platform.runLater(() -> view.showNotification("Live stream paused to view historical data.", "info"));
+        }
+        
         Task<List<HistoricalDataPoint>> fetchTask = new Task<>() {
             @Override
             protected List<HistoricalDataPoint> call() {
-                // For now, fetch last 30 days of data
-                // Later, this can be enhanced with date pickers in UI
                 LocalDateTime now = LocalDateTime.now();
                 LocalDateTime thirtyDaysAgo = now.minusDays(30);
                 String fromDate = thirtyDaysAgo.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
@@ -261,7 +235,6 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
                 for (HistoricalDataPoint point : dataArray) {
                     dataList.add(point);
                 }
-
                 return dataList;
             }
         };
@@ -269,24 +242,19 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
         fetchTask.setOnSucceeded(event -> {
             List<HistoricalDataPoint> data = fetchTask.getValue();
             if (data != null) {
-                // Convert to Object array for display
-                Object[] displayData = data.toArray();
-                view.displayHistoricalData(displayData);
+                view.displayHistoricalData(data.toArray());
                 view.showNotification("Loaded " + data.size() + " historical records", "info");
             }
         });
 
-        fetchTask.setOnFailed(event -> {
-            view.showNotification("Error fetching historical data", "error");
-        });
+        fetchTask.setOnFailed(event ->
+            view.showNotification("Error fetching historical data", "error")
+        );
 
         new Thread(fetchTask).start();
     }
 
-    /**
-     * Called when "Generate Report" button is clicked
-     * Generates a CSV report and downloads it
-     */
+    // Generate report — unchanged
     @Override
     public void onGenerateReportClicked() {
         Task<Void> task = new Task<>() {
@@ -295,10 +263,9 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
                 Platform.runLater(() -> view.showNotification("Generating report...", "info"));
 
                 try {
-                    // Call backend to generate report
                     ReportResponse reportResponse = ApiClient.post(
                             ApiConfig.REPORTS_GENERATE,
-                            new Object(), // Empty body
+                            new Object(),
                             ReportResponse.class
                     );
 
@@ -307,45 +274,32 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
                         return null;
                     }
 
-                    System.out.println("Report generated: " + reportResponse.report_id);
+                    System.out.println("[PRESENTER] Report generated: " + reportResponse.report_id);
 
-                    // Poll for report to be ready
-                    boolean reportReady = false;
-                    int pollAttempts = 0;
-                    while (!reportReady && pollAttempts < 30) { // Max 30 seconds
-                        Thread.sleep(1000); // Wait 1 second
-                        pollAttempts++;
-
-                        // Optionally check report status
-                        // For now, assume report is ready after generation
-                        reportReady = true;
-                    }
-
-                    if (reportReady && reportResponse.file_url != null) {
-                        // Download the report
+                    if (reportResponse.file_url != null) {
                         String downloadUrl = ApiConfig.getDownloadUrl(reportResponse.report_id);
                         byte[] csvData = ApiClient.downloadFile(downloadUrl);
 
                         if (csvData != null) {
-                            // Save to Downloads folder
                             String downloadsPath = System.getProperty("user.home") + "/Downloads";
                             String fileName = "traffic_report_" + System.currentTimeMillis() + ".csv";
                             String filePath = downloadsPath + "/" + fileName;
 
-                            FileOutputStream fos = new FileOutputStream(filePath);
-                            fos.write(csvData);
-                            fos.close();
+                            try (FileOutputStream fos = new FileOutputStream(filePath)) {
+                                fos.write(csvData);
+                            }
 
                             Platform.runLater(() ->
                                 view.showNotification("Report downloaded: " + filePath, "success")
                             );
-                            System.out.println("Report saved to: " + filePath);
+                            System.out.println("[PRESENTER] Report saved to: " + filePath);
                         } else {
                             Platform.runLater(() -> view.showNotification("Failed to download report", "error"));
                         }
                     }
-                } catch (IOException | InterruptedException e) {
-                    System.err.println("Error generating report: " + e.getMessage());
+
+                } catch (IOException e) {
+                    System.err.println("[PRESENTER] Error generating report: " + e.getMessage());
                     Platform.runLater(() -> view.showNotification("Error: " + e.getMessage(), "error"));
                 }
 
@@ -356,18 +310,10 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
         new Thread(task).start();
     }
 
-    /**
-     * Cleanup method - call when application terminates
-     */
+    // Shutdown
     public void shutdown() {
-        if (dataReplayTimer != null) {
-            dataReplayTimer.stop();
-        }
-        if (statusCheckTimer != null) {
-            statusCheckTimer.stop();
-        }
-        if (isStreamActive) {
-            onStopStreamClicked();
-        }
+        if (liveDataTimer != null) liveDataTimer.stop();
+        if (statusCheckTimer != null) statusCheckTimer.stop();
+        if (isStreamActive) onStopStreamClicked();
     }
 }
