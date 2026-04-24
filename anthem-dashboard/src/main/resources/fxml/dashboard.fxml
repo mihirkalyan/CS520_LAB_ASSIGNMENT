@@ -7,345 +7,338 @@
 <?import javafx.scene.chart.CategoryAxis?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.Separator?>
 <?import javafx.scene.image.ImageView?>
+<?import javafx.scene.media.MediaView?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane xmlns="http://javafx.com/javafx/21" 
+<!--
+  dashboard.fxml — 
+  videoContainer StackPane now has an explicit minHeight (450) and a
+           visible background so the panel is never a "black void".
+           A videoPlaceholderLabel sits on top and is hidden once the
+           MediaPlayer starts (controller does that in setStreamStatus(true)).
+           MediaView is kept for local-file playback via JavaFX MediaPlayer
+           (which the controller wires up); -fx-background-color is removed
+           from MediaView itself (it is ignored there) and applied to the
+           parent StackPane instead.
+-->
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.anthem_traffic.view.TrafficDashboardController"
             stylesheets="@../css/styles.css"
             styleClass="root">
-    
+
+    <!-- TOP HEADER -->
     <top>
         <VBox spacing="15" style="-fx-background-color: #0f172a;">
             <padding>
                 <Insets top="20" right="20" bottom="10" left="20"/>
             </padding>
-            
+
             <HBox alignment="CENTER_LEFT" spacing="15">
                 <Label text="Anthem AI" style="-fx-text-fill: #60a5fa; -fx-font-weight: bold;">
-                    <font>
-                        <Font size="32"/>
-                    </font>
+                    <font><Font size="32"/></font>
                 </Label>
-                <Label text="Drone-Based Traffic Monitoring System" 
+                <Label text="Drone-Based Traffic Monitoring System"
                        style="-fx-text-fill: #94a3b8;">
-                    <font>
-                        <Font size="14"/>
-                    </font>
+                    <font><Font size="14"/></font>
                 </Label>
             </HBox>
-            
-            <HBox fx:id="alertContainer" alignment="CENTER_LEFT" spacing="20" 
+
+            <HBox fx:id="alertContainer" alignment="CENTER_LEFT" spacing="20"
                   style="-fx-background-color: #10b981; -fx-background-radius: 10; -fx-padding: 20;">
-                
+
                 <VBox spacing="5">
-                    <Label fx:id="alertLabel" text="Traffic Smooth" 
+                    <Label fx:id="alertLabel" text="Traffic Smooth"
                            style="-fx-text-fill: white; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="20"/>
-                        </font>
+                        <font><Font size="20"/></font>
                     </Label>
-                    <Label fx:id="alertDescriptionLabel" text="Traffic flow is optimal" 
+                    <Label fx:id="alertDescriptionLabel" text="Traffic flow is optimal"
                            style="-fx-text-fill: rgba(255,255,255,0.9);">
-                        <font>
-                            <Font size="12"/>
-                        </font>
+                        <font><Font size="12"/></font>
                     </Label>
                 </VBox>
-                
+
                 <Region HBox.hgrow="ALWAYS"/>
-                
+
                 <VBox alignment="CENTER_RIGHT" spacing="3">
                     <Label text="Current Vehicles" style="-fx-text-fill: rgba(255,255,255,0.8);">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
-                    <Label fx:id="totalVehiclesLabel" text="80" 
+                    <Label fx:id="totalVehiclesLabel" text="0"
                            style="-fx-text-fill: white; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="24"/>
-                        </font>
+                        <font><Font size="24"/></font>
                     </Label>
                 </VBox>
             </HBox>
         </VBox>
     </top>
-    
+
+    <!--  LEFT SIDEBAR -->
     <left>
         <VBox spacing="15" prefWidth="280" style="-fx-background-color: #0f172a;">
             <padding>
                 <Insets top="10" right="15" bottom="20" left="20"/>
             </padding>
-            
+
+            <!-- Stream status indicator -->
             <VBox spacing="10" styleClass="dashboard-card">
                 <Label text="System Control" style="-fx-text-fill: white; -fx-font-weight: bold;">
-                    <font>
-                        <Font size="16"/>
-                    </font>
+                    <font><Font size="16"/></font>
                 </Label>
-                
-                <HBox alignment="CENTER_LEFT" spacing="10" 
+
+                <HBox alignment="CENTER_LEFT" spacing="10"
                       style="-fx-background-color: rgba(15,23,42,0.5); -fx-background-radius: 8; -fx-padding: 12;">
-                    <Label fx:id="streamStatusLabel" text="OFFLINE" 
+                    <Label fx:id="streamStatusLabel" text="OFFLINE"
                            style="-fx-text-fill: #ef4444; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="13"/>
-                        </font>
+                        <font><Font size="13"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
                     <Label text="Stream Status" style="-fx-text-fill: #94a3b8;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                 </HBox>
             </VBox>
-            
+
+            <!-- Stream control buttons -->
             <VBox spacing="10" styleClass="dashboard-card">
                 <Label text="Stream Control" style="-fx-text-fill: #cbd5e1; -fx-font-weight: bold;">
-                    <font>
-                        <Font size="13"/>
-                    </font>
+                    <font><Font size="13"/></font>
                 </Label>
-                
-                <Button fx:id="startStreamButton" text="Start Stream" 
+
+                <Button fx:id="startStreamButton" text="Start Stream"
                         onAction="#handleStartStream"
                         maxWidth="Infinity"
-                        styleClass="btn-start" />
-                
-                <Button fx:id="stopStreamButton" text="Stop Stream" 
+                        styleClass="btn-start"/>
+
+                <Button fx:id="stopStreamButton" text="Stop Stream"
                         onAction="#handleStopStream"
                         maxWidth="Infinity"
-                        styleClass="btn-stop" />
+                        styleClass="btn-stop"/>
             </VBox>
-            
+
+            <!-- Data management buttons -->
             <VBox spacing="10" styleClass="dashboard-card">
                 <Label text="Data Management" style="-fx-text-fill: #cbd5e1; -fx-font-weight: bold;">
-                    <font>
-                        <Font size="13"/>
-                    </font>
+                    <font><Font size="13"/></font>
                 </Label>
-                
-                <Button fx:id="fetchHistoricalButton" text="Fetch Historical Data" 
+
+                <Button fx:id="fetchHistoricalButton" text="Fetch Historical Data"
                         onAction="#handleFetchHistorical"
                         maxWidth="Infinity"
-                        styleClass="btn-fetch" />
-                
-                <Button fx:id="generateReportButton" text="Generate Report" 
+                        styleClass="btn-fetch"/>
+
+                <Button fx:id="generateReportButton" text="Generate Report"
                         onAction="#handleGenerateReport"
                         maxWidth="Infinity"
-                        styleClass="btn-report" />
+                        styleClass="btn-report"/>
             </VBox>
-            
+
+            <!-- System info labels -->
             <VBox spacing="8" styleClass="dashboard-card" VBox.vgrow="ALWAYS">
                 <Label text="System Info" style="-fx-text-fill: #cbd5e1; -fx-font-weight: bold;">
-                    <font>
-                        <Font size="13"/>
-                    </font>
+                    <font><Font size="13"/></font>
                 </Label>
-                
+
                 <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label text="Backend:" style="-fx-text-fill: #94a3b8;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="backendStatusLabel" text="FastAPI ✓" 
+                    <Label fx:id="backendStatusLabel" text="FastAPI ✓"
                            style="-fx-text-fill: #10b981; -fx-font-family: monospace;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                 </HBox>
-                
+
                 <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label text="AI Model:" style="-fx-text-fill: #94a3b8;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="aiModelStatusLabel" text="YOLOv8 ✓" 
+                    <Label fx:id="aiModelStatusLabel" text="YOLOv8 ✓"
                            style="-fx-text-fill: #10b981; -fx-font-family: monospace;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                 </HBox>
-                
+
                 <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label text="Database:" style="-fx-text-fill: #94a3b8;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="databaseStatusLabel" text="Connected ✓" 
+                    <Label fx:id="databaseStatusLabel" text="Connected ✓"
                            style="-fx-text-fill: #10b981; -fx-font-family: monospace;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                 </HBox>
             </VBox>
         </VBox>
     </left>
-    
+
+    <!-- ===== CENTER — Video + Trend Chart ===== -->
     <center>
         <VBox spacing="15">
             <padding>
                 <Insets top="10" right="15" bottom="20" left="15"/>
             </padding>
-            
+
+            <!-- Video feed card -->
             <VBox spacing="5" VBox.vgrow="ALWAYS" styleClass="dashboard-card">
-                
+
                 <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label text="Live Video Feed" style="-fx-text-fill: white; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="16"/>
-                        </font>
+                        <font><Font size="16"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="fpsLabel" text="FPS: 20" 
+
+                    <Label fx:id="fpsLabel" text="FPS: --"
                            style="-fx-text-fill: #94a3b8; -fx-font-family: monospace;">
-                        <font>
-                            <Font size="11"/>
-                        </font>
+                        <font><Font size="11"/></font>
                     </Label>
                 </HBox>
-                
-                <ImageView fx:id="videoFeedImageView" 
-                          fitWidth="800" fitHeight="450" 
-                          preserveRatio="true"
-                          style="-fx-background-color: #0f172a;"/>
+
+                <!--
+                  StackPane background is applied HERE (parent), not on
+                  MediaView (which ignores -fx-background-color).
+                  minHeight="450" ensures the panel has height even before the
+                  stream starts so the placeholder label is visible.
+
+                  Layer order (bottom → top):
+                    1. MediaView  — transparent until MediaPlayer is attached
+                    2. videoPlaceholderLabel — visible initially, hidden by
+                       controller once playback starts
+                -->
+                <StackPane fx:id="videoContainer"
+                           minHeight="450"
+                           style="-fx-background-color: #0f172a;
+                                  -fx-border-color: #1e293b;
+                                  -fx-border-radius: 4;
+                                  -fx-background-radius: 4;">
+
+                    <!-- MediaView for local-file playback via JavaFX MediaPlayer -->
+                    <MediaView fx:id="videoFeedMediaView"
+                               fitWidth="800" fitHeight="450"
+                               preserveRatio="true"/>
+
+                    <!--
+                      Human-readable placeholder — always on top of the
+                      MediaView. Controller sets visible=false once video plays,
+                      and visible=true again when stream stops or errors.
+                    -->
+                    <Label fx:id="videoPlaceholderLabel"
+                           text="Click 'Start Stream' to begin live monitoring"
+                           wrapText="true"
+                           style="-fx-text-fill: #64748b;
+                                  -fx-font-size: 14px;
+                                  -fx-alignment: center;
+                                  -fx-text-alignment: center;"/>
+                </StackPane>
             </VBox>
-            
+
+            <!-- Traffic trend line chart -->
             <VBox spacing="5" prefHeight="300" styleClass="dashboard-card">
-                
                 <Label text="Traffic Volume Over Time" style="-fx-text-fill: white; -fx-font-weight: bold;">
-                    <font>
-                        <Font size="16"/>
-                    </font>
+                    <font><Font size="16"/></font>
                 </Label>
-                
+
                 <LineChart fx:id="trafficTrendChart" VBox.vgrow="ALWAYS"
-                          legendVisible="true"
-                          style="-fx-background-color: transparent;">
+                           legendVisible="true"
+                           style="-fx-background-color: transparent;">
                     <xAxis>
-                        <CategoryAxis label="Time" 
-                                     style="-fx-tick-label-fill: #94a3b8;"/>
+                        <CategoryAxis label="Time"
+                                      style="-fx-tick-label-fill: #94a3b8;"/>
                     </xAxis>
                     <yAxis>
-                        <NumberAxis label="Vehicle Count" 
-                                   style="-fx-tick-label-fill: #94a3b8;"/>
+                        <NumberAxis label="Vehicle Count"
+                                    style="-fx-tick-label-fill: #94a3b8;"/>
                     </yAxis>
                 </LineChart>
             </VBox>
         </VBox>
     </center>
-    
+
+    <!-- RIGHT PANEL — Counts + Pie Chart -->
     <right>
         <VBox spacing="15" prefWidth="300">
             <padding>
                 <Insets top="10" right="20" bottom="20" left="15"/>
             </padding>
-            
+
+            <!-- Live vehicle counts -->
             <VBox spacing="10" styleClass="dashboard-card">
                 <HBox alignment="CENTER_LEFT" spacing="8">
                     <Label text="●" style="-fx-text-fill: #10b981;">
-                        <font>
-                            <Font size="16"/>
-                        </font>
+                        <font><Font size="16"/></font>
                     </Label>
                     <Label text="Live Vehicle Count" style="-fx-text-fill: white; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="16"/>
-                        </font>
+                        <font><Font size="16"/></font>
                     </Label>
                 </HBox>
-                
-                <HBox alignment="CENTER_LEFT" spacing="15" 
+
+                <!-- Cars -->
+                <HBox alignment="CENTER_LEFT" spacing="15"
                       style="-fx-background-color: rgba(16,185,129,0.1); -fx-background-radius: 8; -fx-padding: 12; -fx-border-color: rgba(16,185,129,0.2); -fx-border-radius: 8;">
                     <Label text="🚗" style="-fx-text-fill: white;">
-                        <font>
-                            <Font size="20"/>
-                        </font>
+                        <font><Font size="20"/></font>
                     </Label>
                     <Label text="Cars" style="-fx-text-fill: #cbd5e1; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="14"/>
-                        </font>
+                        <font><Font size="14"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="carsCountLabel" text="45" 
+                    <Label fx:id="carsCountLabel" text="0"
                            style="-fx-text-fill: #10b981; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="22"/>
-                        </font>
+                        <font><Font size="22"/></font>
                     </Label>
                 </HBox>
-                
-                <HBox alignment="CENTER_LEFT" spacing="15" 
+
+                <!-- Trucks -->
+                <HBox alignment="CENTER_LEFT" spacing="15"
                       style="-fx-background-color: rgba(59,130,246,0.1); -fx-background-radius: 8; -fx-padding: 12; -fx-border-color: rgba(59,130,246,0.2); -fx-border-radius: 8;">
                     <Label text="🚚" style="-fx-text-fill: white;">
-                        <font>
-                            <Font size="20"/>
-                        </font>
+                        <font><Font size="20"/></font>
                     </Label>
                     <Label text="Trucks" style="-fx-text-fill: #cbd5e1; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="14"/>
-                        </font>
+                        <font><Font size="14"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="trucksCountLabel" text="12" 
+                    <Label fx:id="trucksCountLabel" text="0"
                            style="-fx-text-fill: #3b82f6; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="22"/>
-                        </font>
+                        <font><Font size="22"/></font>
                     </Label>
                 </HBox>
-                
-                <HBox alignment="CENTER_LEFT" spacing="15" 
+
+                <!-- Motorcycles -->
+                <HBox alignment="CENTER_LEFT" spacing="15"
                       style="-fx-background-color: rgba(245,158,11,0.1); -fx-background-radius: 8; -fx-padding: 12; -fx-border-color: rgba(245,158,11,0.2); -fx-border-radius: 8;">
                     <Label text="🏍️" style="-fx-text-fill: white;">
-                        <font>
-                            <Font size="20"/>
-                        </font>
+                        <font><Font size="20"/></font>
                     </Label>
                     <Label text="Motorcycles" style="-fx-text-fill: #cbd5e1; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="14"/>
-                        </font>
+                        <font><Font size="14"/></font>
                     </Label>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="motorcyclesCountLabel" text="23" 
+                    <Label fx:id="motorcyclesCountLabel" text="0"
                            style="-fx-text-fill: #f59e0b; -fx-font-weight: bold;">
-                        <font>
-                            <Font size="22"/>
-                        </font>
+                        <font><Font size="22"/></font>
                     </Label>
                 </HBox>
             </VBox>
-            
+
+            <!-- Category distribution pie chart -->
             <VBox spacing="10" VBox.vgrow="ALWAYS" styleClass="dashboard-card">
                 <Label text="Category Distribution" style="-fx-text-fill: white; -fx-font-weight: bold;">
-                    <font>
-                        <Font size="16"/>
-                    </font>
+                    <font><Font size="16"/></font>
                 </Label>
-                
+
                 <PieChart fx:id="categoryPieChart" VBox.vgrow="ALWAYS"
-                         legendVisible="true"
-                         minHeight="250" 
-                         prefHeight="350" 
-                         minWidth="250"
-                         style="-fx-background-color: transparent;"/>
+                          legendVisible="true"
+                          minHeight="250"
+                          prefHeight="350"
+                          minWidth="250"
+                          style="-fx-background-color: transparent;"/>
             </VBox>
         </VBox>
     </right>
