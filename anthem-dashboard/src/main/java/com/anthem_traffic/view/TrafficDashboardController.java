@@ -53,13 +53,12 @@ public class TrafficDashboardController implements ITrafficDashboardView {
 
     private MediaPlayer mediaPlayer;
 
-    /**
-     * Resolved VIDEO_PATH placeholder.
-     * Uses user.dir (project root) so it works from any launch location.
-     * Resolves to: <project_root>/backend/trimdemo.mp4
-     */
-    private static final String VIDEO_PATH = 
-            "/Users/heetshah/Projects/CS520_LAB_ASSIGNMENT-main/backend/trimdemo.mp4";
+    // Dynamically resolves to: <project_root>/backend/trimdemo.mp4
+    // This works on Mac, Windows, and Linux for anyone who clones the repo!
+    private static final String VIDEO_PATH = Paths.get(System.getProperty("user.dir"), "..", "backend", "trimdemo.mp4")
+            .normalize()
+            .toAbsolutePath()
+            .toString();
 
     @FXML
     private Label streamStatusLabel;
