@@ -1,19 +1,18 @@
-/* =======================================================
+/*
    Anthem AI - JavaFX Dark Theme 
-   ======================================================= */
 
-/* --- 1. GLOBAL DASHBOARD STYLE --- */
+/* 1. GLOBAL DASHBOARD STYLE */
 .root {
     -fx-background-color: #0f172a; /* Main Dark Slate Background */
     -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
-/* --- 2. TYPOGRAPHY & LABELS --- */
+/*  2. TYPOGRAPHY & LABELS  */
 .label {
     -fx-text-fill: #f8fafc; /* Default bright white text */
 }
 
-/* --- 3. PANELS & CARDS (The rounded dark boxes) --- */
+/* 3. PANELS & CARDS (The rounded dark boxes) */
 .vbox, .hbox {
     /* Only apply this to boxes that are specifically acting as cards */
 }
@@ -26,7 +25,7 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 5);
 }
 
-/* --- 4. BUTTONS (Modern flat design with hover states) --- */
+/* BUTTONS (Modern flat design with hover states */
 .button {
     -fx-background-radius: 8px;
     -fx-font-weight: bold;
@@ -67,7 +66,7 @@
 .btn-report:hover { -fx-background-color: #a78bfa; }
 
 
-/* --- 5. LINE CHART STYLING (Removing the ugly white box!) --- */
+/*LINE CHART STYLING (Removing the ugly white box!)*/
 .chart {
     -fx-padding: 5px;
 }
@@ -109,12 +108,12 @@
     -fx-text-fill: #cbd5e1;
 }
 
-/* --- 6. PIE CHART STYLING --- */
+/* 6. PIE CHART STYLING */
 .default-color0.chart-pie { -fx-pie-color: #10b981; -fx-border-color: #1e293b; -fx-border-width: 2px;}
 .default-color1.chart-pie { -fx-pie-color: #3b82f6; -fx-border-color: #1e293b; -fx-border-width: 2px;}
 .default-color2.chart-pie { -fx-pie-color: #f59e0b; -fx-border-color: #1e293b; -fx-border-width: 2px;}
 
-/* --- 7. EVENT LOG TERMINAL --- */
+/* 7. EVENT LOG TERMINAL */
 .event-log {
     -fx-background-color: #0f172a;
     -fx-border-color: #334155;
