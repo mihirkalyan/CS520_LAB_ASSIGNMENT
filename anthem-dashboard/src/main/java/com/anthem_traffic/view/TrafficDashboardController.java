@@ -16,6 +16,7 @@ import javafx.scene.media.MediaView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import java.nio.file.Paths;
 
 import java.io.File;
 
