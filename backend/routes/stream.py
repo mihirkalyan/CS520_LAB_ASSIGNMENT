@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from database.db import get_db
 from models.traffic import SystemStatus
+from services.video_service import video_processor
 
 router = APIRouter(prefix="/api/stream", tags=["stream"])
 
@@ -39,6 +40,8 @@ def start_stream(db: Session = Depends(get_db)):
     status.backend_connected = True
     status.database_connected = True
     db.commit()
+    if not video_processor.is_running:
+        video_processor.start()
     return {
         "stream_active": True,
         "message": "Stream started. Backend is ready to receive traffic records.",
@@ -58,6 +61,7 @@ def stop_stream(db: Session = Depends(get_db)):
     status = _get_or_create_status(db)
     status.stream_active = False
     db.commit()
+    video_processor.stop()
     return {
         "stream_active": False,
         "message": "Stream stopped.",

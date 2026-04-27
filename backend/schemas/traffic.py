@@ -68,12 +68,16 @@ class LiveStreamResponse(BaseModel):
 
 
 class HistoricalDataPoint(BaseModel):
-    timestamp:       datetime
-    cars:            int
-    trucks:          int
-    motorcycles:     int
-    total:           int
+    timestamp:        datetime
+    cars:             int
+    trucks:           int
+    motorcycles:      int
+    total:            int
     congestion_level: str
+    cars_pct:         float = 0.0
+    trucks_pct:       float = 0.0
+    motorcycles_pct:  float = 0.0
+    source:           str = "ai"
 
 
 class ReportResponse(BaseModel):

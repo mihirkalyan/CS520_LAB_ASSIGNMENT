@@ -94,7 +94,6 @@ class VideoProcessor:
             status_row = db.query(SystemStatus).filter_by(id=1).first()
             if status_row:
                 status_row.stream_active = True
-                status_row.stream_url    = str(source)
                 db.commit()
 
             cap = cv2.VideoCapture(source)
@@ -111,8 +110,9 @@ class VideoProcessor:
             while self.is_running:
                 ret, frame = cap.read()
                 if not ret:
-                    print("[INFO] Video source ended or no frame received.")
-                    break
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    frame_number = 0
+                    continue
 
                 frame_number += 1
                 if frame_number % config.SAMPLE_EVERY_N_FRAMES != 0:
@@ -120,6 +120,7 @@ class VideoProcessor:
 
                 detections = yolo_service.detect_frame(frame)
                 counts     = yolo_service.count_vehicles(detections)
+                print(f"[DETECT] Frame {frame_number}: cars={counts['cars']}, trucks={counts['trucks']}, motos={counts['motorcycles']}")
 
                 # Persist raw per-vehicle detections
                 for d in detections:

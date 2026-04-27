@@ -9,11 +9,6 @@ from database.db import get_db
 from models.traffic import TrafficSnapshot, SystemStatus
 from schemas.traffic import (
     TrafficRecordCreate,
-    LiveStreamResponse,
-    VehicleCountResponse,
-    CategoryDistributionResponse,
-    TrafficTrendPoint,
-    CongestionAlertResponse,
     SystemStatusResponse,
     HistoricalDataPoint,
 )
@@ -72,52 +67,34 @@ def record_traffic(payload: TrafficRecordCreate, db: Session = Depends(get_db)):
 # GET /api/traffic/live
 # Frontend polls this every 2 seconds when stream is active.
 # ---------------------------------------------------------------------------
-@router.get("/live", response_model=LiveStreamResponse)
+@router.get("/live", response_model=HistoricalDataPoint)
 def get_live(db: Session = Depends(get_db)):
     latest: Optional[TrafficSnapshot] = (
         db.query(TrafficSnapshot)
         .order_by(desc(TrafficSnapshot.timestamp))
         .first()
     )
-    status: Optional[SystemStatus] = db.query(SystemStatus).filter_by(id=1).first()
 
     if not latest:
-        return LiveStreamResponse(
-            vehicle_counts=VehicleCountResponse(cars=0, trucks=0, motorcycles=0, total=0),
-            category_distribution=CategoryDistributionResponse(cars_pct=0, trucks_pct=0, motorcycles_pct=0),
-            trend=TrafficTrendPoint(timestamp="--:--:--", cars=0, trucks=0, motorcycles=0),
-            congestion=CongestionAlertResponse(severity="smooth"),
-            system_status=SystemStatusResponse(
-                backend_connected=True,
-                database_connected=status is not None,
-                ai_model_loaded=status.ai_model_loaded if status else False,
-                stream_active=status.stream_active if status else False,
-            ),
+        return HistoricalDataPoint(
+            timestamp=datetime.now(timezone.utc),
+            cars=0, trucks=0, motorcycles=0, total=0,
+            congestion_level="smooth",
+            cars_pct=0.0, trucks_pct=0.0, motorcycles_pct=0.0,
+            source="ai",
         )
 
-    ts_str = latest.timestamp.astimezone(timezone.utc).strftime("%H:%M:%S")
-
-    return LiveStreamResponse(
-        vehicle_counts=VehicleCountResponse(
-            cars=latest.cars, trucks=latest.trucks,
-            motorcycles=latest.motorcycles, total=latest.total,
-        ),
-        category_distribution=CategoryDistributionResponse(
-            cars_pct=latest.cars_pct,
-            trucks_pct=latest.trucks_pct,
-            motorcycles_pct=latest.motorcycles_pct,
-        ),
-        trend=TrafficTrendPoint(
-            timestamp=ts_str,
-            cars=latest.cars, trucks=latest.trucks, motorcycles=latest.motorcycles,
-        ),
-        congestion=CongestionAlertResponse(severity=latest.congestion_level),
-        system_status=SystemStatusResponse(
-            backend_connected=True,
-            database_connected=True,
-            ai_model_loaded=status.ai_model_loaded if status else False,
-            stream_active=status.stream_active if status else False,
-        ),
+    return HistoricalDataPoint(
+        timestamp=latest.timestamp,
+        cars=latest.cars,
+        trucks=latest.trucks,
+        motorcycles=latest.motorcycles,
+        total=latest.total,
+        congestion_level=latest.congestion_level,
+        cars_pct=latest.cars_pct,
+        trucks_pct=latest.trucks_pct,
+        motorcycles_pct=latest.motorcycles_pct,
+        source=latest.source,
     )
 
 
@@ -146,6 +123,10 @@ def get_historical(
             motorcycles=r.motorcycles,
             total=r.total,
             congestion_level=r.congestion_level,
+            cars_pct=r.cars_pct,
+            trucks_pct=r.trucks_pct,
+            motorcycles_pct=r.motorcycles_pct,
+            source=r.source,
         )
         for r in records
     ]
