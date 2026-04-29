@@ -19,6 +19,10 @@ import javafx.scene.paint.Color;
 import java.nio.file.Paths;
 
 import java.io.File;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 import com.anthem_traffic.presenter.ITrafficDashboardPresenter;
 
@@ -54,9 +58,9 @@ public class TrafficDashboardController implements ITrafficDashboardView {
 
     private MediaPlayer mediaPlayer;
 
-    // Dynamically resolves to: <project_root>/backend/trimdemo.mp4
+    // Dynamically resolves to: <project_root>/backend/trimdemo1.mp4
     // This works on Mac, Windows, and Linux for anyone who clones the repo!
-    private static final String VIDEO_PATH = Paths.get(System.getProperty("user.dir"), "..", "backend", "trimdemo.mp4")
+    private static final String VIDEO_PATH = Paths.get(System.getProperty("user.dir"), "..", "backend", "trimdemo1.mp4")
             .normalize()
             .toAbsolutePath()
             .toString();
@@ -290,7 +294,7 @@ public class TrafficDashboardController implements ITrafficDashboardView {
                 alertLabel.setText("Analyzing Traffic...");
                 alertDescriptionLabel.setText("Waiting for YOLOv8 data from backend...");
 
-                // Use resolved VIDEO_PATH (project root + backend/trimdemo.mp4)
+                // Use resolved VIDEO_PATH (project root + backend/trimdemo1.mp4)
                 try {
                     if (mediaPlayer == null) {
                         File videoFile = new File(VIDEO_PATH);
@@ -414,6 +418,8 @@ public class TrafficDashboardController implements ITrafficDashboardView {
     @Override
     public void displayHistoricalData(Object[] historicalData) {
         Platform.runLater(() -> {
+            if (historicalData == null || historicalData.length == 0) return;
+
             carsSeries.getData().clear();
             trucksSeries.getData().clear();
             motorcyclesSeries.getData().clear();
@@ -433,14 +439,25 @@ public class TrafficDashboardController implements ITrafficDashboardView {
         });
     }
 
+    private static final DateTimeFormatter HIST_LABEL_FMT = DateTimeFormatter.ofPattern("MM/dd HH:mm");
+
+    // Parses ISO-8601 backend timestamps and returns "MM/dd HH:mm" for historical chart labels.
+    // Historical data spans 30 days, so date context is needed on each tick.
     private String extractTimeLabel(String timestamp) {
         if (timestamp == null || timestamp.isEmpty()) return "00:00";
-        if (timestamp.contains(" ")) {
-            try { return timestamp.substring(11, 16); } catch (StringIndexOutOfBoundsException e) { return "00:00"; }
-        } else if (timestamp.contains(":")) {
-            try { return timestamp.substring(0, 5); } catch (StringIndexOutOfBoundsException e) { return "00:00"; }
+        try {
+            OffsetDateTime dt = OffsetDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            return dt.atZoneSameInstant(ZoneId.systemDefault()).format(HIST_LABEL_FMT);
+        } catch (DateTimeParseException e) {
+            // Fallback for legacy space-separated or T-separated strings
+            if (timestamp.length() >= 16 && (timestamp.charAt(10) == 'T' || timestamp.charAt(10) == ' ')) {
+                return timestamp.substring(11, 16);
+            }
+            if (timestamp.contains(":")) {
+                return timestamp.substring(0, Math.min(5, timestamp.length()));
+            }
+            return "00:00";
         }
-        return "00:00";
     }
 
     @Override

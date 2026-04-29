@@ -16,7 +16,10 @@ import javafx.util.Duration;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -158,14 +161,35 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
         liveDataTimer.play();
     }
 
+    private static final DateTimeFormatter TIME_ONLY_FMT = DateTimeFormatter.ofPattern("HH:mm");
+
+    // Parses ISO-8601 backend timestamps (e.g. "2024-01-15T14:30:45.123456+00:00")
+    // and returns a local HH:mm label for live chart ticks.
     private String extractTimeFromTimestamp(String timestamp) {
-        if (timestamp == null || timestamp.length() < 5) return "00:00";
-        if (timestamp.contains(" ") && timestamp.length() >= 16) {
-            return timestamp.substring(11, 16); // "HH:MM" from "YYYY-MM-DD HH:MM:SS"
-        } else if (timestamp.contains(":")) {
-            return timestamp.substring(0, 5);   // "HH:MM" from "HH:MM:SS"
+        if (timestamp == null || timestamp.isBlank()) return "00:00";
+        try {
+            OffsetDateTime dt = OffsetDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            return dt.atZoneSameInstant(ZoneId.systemDefault()).format(TIME_ONLY_FMT);
+        } catch (DateTimeParseException e) {
+            // Fallback for legacy space-separated or bare time strings
+            if (timestamp.length() >= 16 && (timestamp.charAt(10) == 'T' || timestamp.charAt(10) == ' ')) {
+                return timestamp.substring(11, 16);
+            }
+            if (timestamp.contains(":")) {
+                return timestamp.substring(0, Math.min(5, timestamp.length()));
+            }
+            return "00:00";
         }
-        return "00:00";
+    }
+
+    private List<HistoricalDataPoint> downsample(List<HistoricalDataPoint> list, int maxPoints) {
+        if (list.size() <= maxPoints) return list;
+        List<HistoricalDataPoint> result = new ArrayList<>(maxPoints);
+        double step = (double)(list.size() - 1) / (maxPoints - 1);
+        for (int i = 0; i < maxPoints; i++) {
+            result.add(list.get((int) Math.round(i * step)));
+        }
+        return result;
     }
 
     // Stop stream: reset UI/state unconditionally, fire-and-forget
@@ -227,7 +251,7 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
                 );
 
                 if (dataArray == null) {
-                    Platform.runLater(() -> view.showNotification("Failed to fetch historical data", "error"));
+                    Platform.runLater(() -> view.showNotification("Failed to fetch historical data — keeping current chart", "error"));
                     return null;
                 }
 
@@ -235,16 +259,27 @@ public class TrafficDashboardPresenter implements ITrafficDashboardPresenter {
                 for (HistoricalDataPoint point : dataArray) {
                     dataList.add(point);
                 }
+
+                System.out.println("[PRESENTER] Historical fetch: " + dataList.size() + " records" +
+                    (dataList.isEmpty() ? "" :
+                     ", first=" + dataList.get(0).timestamp +
+                     ", last=" + dataList.get(dataList.size() - 1).timestamp));
+
                 return dataList;
             }
         };
 
         fetchTask.setOnSucceeded(event -> {
             List<HistoricalDataPoint> data = fetchTask.getValue();
-            if (data != null) {
-                view.displayHistoricalData(data.toArray());
-                view.showNotification("Loaded " + data.size() + " historical records", "info");
+            if (data == null) return; // error already shown in call()
+            if (data.isEmpty()) {
+                view.showNotification("No historical records found for the selected period", "info");
+                return; // leave the chart as-is
             }
+            List<HistoricalDataPoint> displayData = downsample(data, 50);
+            view.displayHistoricalData(displayData.toArray());
+            view.showNotification(
+                "Loaded " + data.size() + " records (" + displayData.size() + " shown)", "info");
         });
 
         fetchTask.setOnFailed(event ->
